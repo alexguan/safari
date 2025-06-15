@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>坦桑尼亚游猎交互式准备清单</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Safari Sunset -->
+    <!-- Application Structure Plan: A task-oriented interactive checklist SPA. The main navigation allows users to jump between core preparation categories (Clothing, Health, Gear, Final Prep). Each category is an interactive module where users can check off items, filter by necessity ("Must-Have" vs. "Good-to-Have"), and expand items to see detailed recommendations. This structure transforms a passive guide into an active preparation tool, enhancing usability by breaking down the dense information into manageable, interactive tasks. A master progress tracker (donut chart) gamifies the experience and provides immediate feedback on completion status. -->
+    <!-- Visualization & Content Choices: 
+        - Info: Temperature Variation -> Goal: Explain "why" layering is needed -> Viz: Line Chart -> Interaction: Static display -> Justification: Visually communicates temperature swing more effectively than text -> Library: Chart.js.
+        - Info: Entire Packing List -> Goal: Track user's preparation progress -> Viz: Interactive Checklists + Donut Chart -> Interaction: User checks items, which updates a counter and redraws the donut chart dynamically -> Justification: Turns a static list into an engaging, personalized tool. The chart provides a high-level visual summary of progress. -> Library/Method: HTML/CSS/JS for checklists, Chart.js for the donut chart.
+        - Info: Item Recommendations -> Goal: Organize detailed info without cluttering the UI -> Viz: Accordion/Toggle Content -> Interaction: User clicks "View Details" to show/hide recommendation text -> Justification: Improves scannability and reduces initial information overload. -> Library/Method: HTML/CSS/JS.
+        - Info: Item Necessity -> Goal: Compare "Must-Have" vs. "Good-to-Have" -> Viz: Color-coded tags + Filter buttons -> Interaction: User clicks filter buttons to isolate items by necessity level -> Justification: Allows users to focus on the most critical items first, directly addressing a key categorization from the source report. -> Library/Method: HTML/CSS/JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
+        }
+        .details-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .details-content.open {
+            max-height: 1000px;
+        }
+        .checklist-item.checked label {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+        .nav-item.active {
+            background-color: #f59e0b;
+            color: white;
+        }
+        .filter-btn.active {
+            background-color: #10b981;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-emerald-800 mb-2">坦桑尼亚家庭游猎之旅</h1>
+            <p class="text-xl text-stone-600">您的交互式准备中心</p>
+        </header>
+
+        <section id="progress" class="mb-8 p-6 bg-white rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-bold text-center mb-4">准备进度一览</h2>
+            <p class="text-center text-stone-600 mb-4">当您在下方清单中勾选物品时，此图表会实时更新，帮助您追踪整体准备情况。</p>
+            <div class="flex flex-col md:flex-row items-center justify-center gap-8">
+                <div class="relative w-48 h-48">
+                    <canvas id="progressDonutChart"></canvas>
+                    <div id="progressText" class="absolute inset-0 flex items-center justify-center text-3xl font-bold text-emerald-700">0%</div>
+                </div>
+                <div id="summary" class="text-center md:text-left">
+                    <p class="text-lg">已完成: <span id="checkedCount" class="font-bold">0</span></p>
+                    <p class="text-lg">总计: <span id="totalCount" class="font-bold">0</span> 项必备物品</p>
+                    <p class="text-sm text-stone-500 mt-2">这只是一个开始！让我们一起完成准备吧。</p>
+                </div>
+            </div>
+        </section>
+
+        <nav class="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-md rounded-full mb-8 p-2 flex items-center justify-center gap-2 md:gap-4 flex-wrap">
+            <a href="#clothing" class="nav-item text-sm md:text-base font-semibold px-4 py-2 rounded-full transition duration-300 hover:bg-amber-400 hover:text-white">👕 衣物准备</a>
+            <a href="#health" class="nav-item text-sm md:text-base font-semibold px-4 py-2 rounded-full transition duration-300 hover:bg-amber-400 hover:text-white">💊 健康安全</a>
+            <a href="#gear" class="nav-item text-sm md:text-base font-semibold px-4 py-2 rounded-full transition duration-300 hover:bg-amber-400 hover:text-white">🔭 关键装备</a>
+            <a href="#documents" class="nav-item text-sm md:text-base font-semibold px-4 py-2 rounded-full transition duration-300 hover:bg-amber-400 hover:text-white">📄 行前手续</a>
+        </nav>
+        
+        <main class="space-y-8">
+            <section id="clothing" class="scroll-mt-24 p-6 bg-white rounded-2xl shadow-lg">
+                <h2 class="text-3xl font-bold mb-4 border-b pb-2">👕 衣物准备</h2>
+                <p class="mb-4 text-stone-600">正确的着装是游猎成功的关键。坦桑尼亚昼夜温差大，请务必采用“洋葱式”分层穿法。下图展示了七月典型的日温差，直观地说明了为何需要同时准备保暖的抓绒衣和轻薄的T恤。</p>
+                <div class="chart-container mb-6">
+                    <canvas id="tempChart"></canvas>
+                </div>
+                <div id="clothing-checklist-container"></div>
+            </section>
+            
+            <section id="health" class="scroll-mt-24 p-6 bg-white rounded-2xl shadow-lg">
+                <h2 class="text-3xl font-bold mb-4 border-b pb-2">💊 健康与安全</h2>
+                <p class="mb-4 text-stone-600">在偏远的非洲草原，“预防胜于治疗”是最高准则。这里的清单涵盖了从医疗咨询到高效防虫防晒的全部必需品，确保您的家庭能够安心享受野性之美。</p>
+                <div id="health-checklist-container"></div>
+            </section>
+            
+            <section id="gear" class="scroll-mt-24 p-6 bg-white rounded-2xl shadow-lg">
+                <h2 class="text-3xl font-bold mb-4 border-b pb-2">🔭 关键装备</h2>
+                <p class="mb-4 text-stone-600">除了衣物和药品，一些关键装备能将您的游猎体验从“不错”提升至“卓越”。特别是为人手一台望远镜和可靠的充电设备，这将极大地提升您和孩子的探索乐趣。</p>
+                <div id="gear-checklist-container"></div>
+            </section>
+            
+            <section id="documents" class="scroll-mt-24 p-6 bg-white rounded-2xl shadow-lg">
+                <h2 class="text-3xl font-bold mb-4 border-b pb-2">📄 文件与最终核对</h2>
+                 <p class="mb-4 text-stone-600">这是确保您顺利出入境和应对突发状况的最后一道防线。请仔细核对每一项，并做好数字与物理双重备份，做到万无一失。</p>
+                <div id="documents-checklist-container"></div>
+            </section>
+        </main>
+        
+        <footer class="text-center mt-12 text-stone-500 text-sm">
+            <p>祝您和家人拥有一段安全、愉快、终生难忘的游猎时光！</p>
+            <p>交互式清单由AI专家根据您的报告生成。</p>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const checklistData = {
+                clothing: [
+                    { name: '长袖功能性衬衫 (每人2-3件)', must: true, details: '<strong>核心功能:</strong> UPF 50+防晒，防虫，防尘，中性色。<br><strong>推荐品牌:</strong> ExOfficio BugsAway, Royal Robbins, Columbia PFG。<br><strong>购买渠道:</strong> REI, Backcountry, Amazon。' },
+                    { name: '透气T恤/Polo衫 (每人3-4件)', must: true, details: '<strong>核心功能:</strong> 吸湿排汗，用于分层穿着。<br><strong>推荐品牌:</strong> Patagonia Capilene, The North Face。<br><strong>购买渠道:</strong> REI, Dick\'s Sporting Goods。' },
+                    { name: '可拆卸两截式徒步裤 (每人2条)', must: true, details: '<strong>核心功能:</strong> 适应温度变化，轻便快干，中性色，避免牛仔裤。<br><strong>推荐品牌:</strong> REI Co-op Sahara, Columbia Silver Ridge。<br><strong>购买渠道:</strong> REI, Columbia官网。' },
+                    { name: '抓绒夹克 (每人1件)', must: true, details: '<strong>核心功能:</strong> 抵御清晨和夜晚的寒冷，尤其在恩戈罗恩戈罗火山口。<br><strong>推荐品牌:</strong> The North Face Glacier, Patagonia Better Sweater。<br><strong>购买渠道:</strong> REI, The North Face官网。' },
+                    { name: '轻便防风/防水夹克 (每人1件)', must: true, details: '<strong>核心功能:</strong> 清晨防风，防意外小雨，轻便易携。<br><strong>推荐品牌:</strong> Marmot PreCip Eco, Patagonia Torrentshell。<br><strong>购买渠道:</strong> REI, Backcountry。' },
+                    { name: '舒适的徒步鞋 (每人1双, 已磨合)', must: true, details: '<strong>核心功能:</strong> 舒适，支撑性好，保护脚部。务必提前穿习惯。<br><strong>推荐品牌:</strong> Merrell Moab 3, Keen Targhee III。<br><strong>购买渠道:</strong> REI, Merrell官网, Zappos。' },
+                    { name: '吸湿排汗袜 (每人4-5双)', must: true, details: '<strong>核心功能:</strong> 保持足部干爽，预防起泡。选择羊毛或合成纤维。<br><strong>推荐品牌:</strong> Darn Tough, Smartwool, REI Co-op。<br><strong>购买渠道:</strong> REI, Amazon。' },
+                    { name: '宽檐帽 (每人1顶, 带束带)', must: true, details: '<strong>核心功能:</strong> UPF 50+防晒，保护面部、耳朵和颈部。防风吹走。<br><strong>推荐品牌:</strong> Tilley LTM6 Airflo, Coolibar。<br><strong>购买渠道:</strong> REI, 品牌官网。' },
+                    { name: '围巾或魔术头巾 (每人1条)', must: true, details: '<strong>核心功能:</strong> 防尘，保暖，多功能。' },
+                    { name: '薄手套和毛线帽 (每人1套)', must: true, details: '<strong>核心功能:</strong> 应对火山口和清晨的严寒。' },
+                    { name: '泳衣 (每人1套)', must: false, details: '<strong>理由:</strong> 很多酒店和营地都有泳池，是午间放松的好去处。' },
+                    { name: '一套休闲晚餐服装', must: false, details: '<strong>理由:</strong> 无需正装，但在结束一天风尘仆仆后换上干净便装会很惬意。' },
+                ],
+                health: [
+                    { name: '咨询旅行门诊', must: true, details: '<strong>重要提示:</strong> 出发前6-8周完成，获取权威疫苗和药物建议。' },
+                    { name: '完成推荐疫苗接种', must: true, details: '<strong>通常包括:</strong> 甲肝、伤寒、破伤风。根据医生建议可能还有其他。' },
+                    { name: '准备抗疟疾处方药', must: true, details: '<strong>理由:</strong> 坦桑尼亚大部分游猎区有疟疾风险。<br><strong>推荐药物 (遵医嘱):</strong> Malarone (阿托伐醌/氯胍)。' },
+                    { name: '派卡瑞丁(Picaridin)驱蚊液', must: true, details: '<strong>核心优势:</strong> 高效防蚊防蝇，且不损伤塑料或合成纤维装备。<br><strong>推荐品牌:</strong> Sawyer Picaridin Lotion/Spray。<br><strong>购买渠道:</strong> REI, Amazon, Walmart。' },
+                    { name: '氯菊酯(Permethrin)衣物喷雾', must: true, details: '<strong>核心功能:</strong> 出发前处理外衣，形成最强防虫屏障，对采采蝇尤其有效。<br><strong>推荐品牌:</strong> Sawyer Permethrin for Clothing。<br><strong>购买渠道:</strong> REI, Amazon。' },
+                    { name: '广谱防晒霜 (SPF 30-50+)', must: true, details: '<strong>核心功能:</strong> 防护强烈的赤道紫外线。<br><strong>推荐品牌:</strong> La Roche-Posay, Badger, Neutrogena。<br><strong>购买渠道:</strong> Target, CVS, Amazon。' },
+                    { name: 'SPF防晒唇膏', must: true, details: '<strong>理由:</strong> 嘴唇也极易晒伤。' },
+                    { name: '配置家庭急救包', must: true, details: '<strong>内容应包括:</strong> 创可贴、消毒湿巾、抗生素软膏、纱布、水泡贴、止痛药、抗过敏药、晕车药、止泻药、可的松乳膏、润喉糖。' },
+                    { name: '个人处方药 (足量)', must: true, details: '<strong>重要提示:</strong> 携带足够整个行程外加几天的备用量，并保存在原始包装中，附上医生处方复印件。' },
+                ],
+                gear: [
+                    { name: '望远镜 (建议每人1台)', must: true, details: '<strong>核心建议:</strong> 人手一台能极大提升孩子参与感。<strong>推荐规格:</strong> 8x42或10x42。<br><strong>推荐型号:</strong> Vortex Diamondback HD (提供终身无条件保修)。<br><strong>购买渠道:</strong> B&H Photo, Adorama, Amazon。' },
+                    { name: '相机 (带长焦功能)', must: true, details: '<strong>推荐类型:</strong> 桥式长焦相机 (如Nikon P950, Sony RX10 IV)，无需换镜头，一体化解决方案。' },
+                    { name: '相机备用电池和存储卡', must: true, details: '<strong>建议:</strong> 至少2块备用电池，多张大容量存储卡 (64GB+)。' },
+                    { name: 'G/D型插头转换器', must: true, details: '<strong>理由:</strong> 适配坦桑尼亚当地插座。您的电子设备充电器通常是宽电压，无需变压器。' },
+                    { name: '大容量移动电源 (20,000mAh+)', must: true, details: '<strong>用途:</strong> 作为家庭电力储备，在营地集中充电。<br><strong>推荐品牌:</strong> Anker PowerCore 20100。' },
+                    { name: '多口USB充电器', must: true, details: '<strong>用途:</strong> 在有限的插座上同时为多个设备充电，提高效率。' },
+                    { name: '头灯或手电筒 (每人1个)', must: true, details: '<strong>理由:</strong> 营地夜间照明有限，头灯可解放双手。' },
+                    { name: '个人日用背包 (每人1个)', must: true, details: '<strong>用途:</strong> 在游猎车上携带水、零食、相机、望远镜等当日必需品。' },
+                    { name: '野生动物图鉴', must: false, details: '<strong>对孩子的好处:</strong> 将被动观察变为主动探索，增加参与感。<br><strong>推荐书籍:</strong> "A Field Guide to the Larger Mammals of Tanzania" (普林斯顿大学出版社)。' },
+                    { name: '游猎日志/活动手册', must: false, details: '<strong>对孩子的好处:</strong> 记录旅行点滴，填补路途闲暇时光。' },
+                    { name: '可重复使用的水瓶', must: false, details: '<strong>理由:</strong> 环保，多数游猎公司提供大桶装水供续杯。' },
+                ],
+                documents: [
+                    { name: '检查全家护照有效期 (>6个月)', must: true, details: '<strong>要求:</strong> 自入境之日起，有效期必须至少还有6个月，且至少有1页空白页。' },
+                    { name: '在线申请坦桑尼亚电子签证', must: true, details: '<strong>费用 (美国公民):</strong> $100/人 (一年多次)。<br><strong>建议:</strong> 提前2-3周通过官方e-visa网站申请，避免落地签排队。' },
+                    { name: '购买综合旅行保险', must: true, details: '<strong>核心保障:</strong> 紧急医疗运送 (保额至少$25万)、紧急医疗费用、行程取消/中断、行李延误/丢失。<br><strong>比价网站:</strong> Squaremouth。' },
+                    { name: "准备新版美元现钞 (2006年后)", must: true, details: '<strong>用途:</strong> 支付小费等。必须是票面崭新、无折痕、无污损的现钞。' },
+                    { name: '备份所有重要文件 (物理+数字)', must: true, details: '<strong>文件清单:</strong> 护照、签证批准函、机票、保险单。<br><strong>备份策略:</strong> 复印件+手机拍照+上传云端。' },
+                    { name: '通知信用卡/银行卡公司旅行计划', must: true, details: '<strong>理由:</strong> 防止您的银行卡在境外使用时被风控冻结。' },
+                ]
+            };
+            
+            let progressDonutChart, tempChart;
+            const checkedState = {};
+
+            function renderChecklists() {
+                Object.keys(checklistData).forEach(category => {
+                    const container = document.getElementById(`${category}-checklist-container`);
+                    if (!container) return;
+
+                    const filters = `
+                        <div class="flex items-center gap-2 mb-4 flex-wrap" data-category="${category}">
+                            <button class="filter-btn active text-sm px-3 py-1 rounded-full border border-gray-300 transition" data-filter="all">全部</button>
+                            <button class="filter-btn text-sm px-3 py-1 rounded-full border border-gray-300 transition" data-filter="must">仅看必备</button>
+                            <button class="filter-btn text-sm px-3 py-1 rounded-full border border-gray-300 transition" data-filter="optional">仅看建议</button>
+                        </div>
+                    `;
+
+                    const itemsHtml = checklistData[category].map((item, index) => {
+                        const itemId = `${category}-${index}`;
+                        return `
+                            <li class="checklist-item py-3 border-b border-stone-200" data-must="${item.must}">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-start">
+                                        <input type="checkbox" id="${itemId}" class="mt-1.5 h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" data-item-id="${itemId}" data-must="${item.must}">
+                                        <label for="${itemId}" class="ml-3 text-lg text-stone-700">${item.name}</label>
+                                    </div>
+                                    <button class="details-toggle text-sm font-semibold text-emerald-600 hover:text-emerald-800 transition p-1">详情 ▼</button>
+                                </div>
+                                <div class="details-content ml-8 mt-2 text-stone-600 bg-stone-50 p-4 rounded-lg">
+                                    ${item.details}
+                                </div>
+                            </li>
+                        `;
+                    }).join('');
+                    
+                    container.innerHTML = filters + `<ul class="space-y-2">${itemsHtml}</ul>`;
+                });
+            }
+
+            function setupEventListeners() {
+                document.querySelector('.container').addEventListener('click', function(e) {
+                    if (e.target.matches('input[type="checkbox"]')) {
+                        const itemId = e.target.dataset.itemId;
+                        checkedState[itemId] = e.target.checked;
+                        e.target.closest('li').classList.toggle('checked', e.target.checked);
+                        updateProgress();
+                    }
+                    if (e.target.matches('.details-toggle')) {
+                        e.preventDefault();
+                        const content = e.target.closest('li').querySelector('.details-content');
+                        content.classList.toggle('open');
+                        e.target.textContent = content.classList.contains('open') ? '收起 ▲' : '详情 ▼';
+                    }
+                    if (e.target.matches('.filter-btn')) {
+                        const category = e.target.parentElement.dataset.category;
+                        const filter = e.target.dataset.filter;
+                        
+                        e.target.parentElement.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+                        e.target.classList.add('active');
+
+                        const container = document.getElementById(`${category}-checklist-container`);
+                        container.querySelectorAll('.checklist-item').forEach(item => {
+                            if (filter === 'all') {
+                                item.style.display = '';
+                            } else if (filter === 'must') {
+                                item.style.display = item.dataset.must === 'true' ? '' : 'none';
+                            } else if (filter === 'optional') {
+                                item.style.display = item.dataset.must === 'false' ? '' : 'none';
+                            }
+                        });
+                    }
+                });
+            }
+
+            function getTotalMustHaveItems() {
+                let total = 0;
+                Object.values(checklistData).flat().forEach(item => {
+                    if (item.must) total++;
+                });
+                return total;
+            }
+
+            function updateProgress() {
+                const totalMustItems = getTotalMustHaveItems();
+                let checkedMustItems = 0;
+                document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                    if (checkbox.dataset.must === 'true') {
+                        checkedMustItems++;
+                    }
+                });
+
+                const percentage = totalMustItems > 0 ? Math.round((checkedMustItems / totalMustItems) * 100) : 0;
+                
+                document.getElementById('progressText').textContent = `${percentage}%`;
+                document.getElementById('checkedCount').textContent = checkedMustItems;
+                document.getElementById('totalCount').textContent = totalMustItems;
+
+                progressDonutChart.data.datasets[0].data = [checkedMustItems, totalMustItems - checkedMustItems];
+                progressDonutChart.update();
+            }
+
+            function createCharts() {
+                const progressCtx = document.getElementById('progressDonutChart').getContext('2d');
+                progressDonutChart = new Chart(progressCtx, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{
+                            data: [0, getTotalMustHaveItems()],
+                            backgroundColor: ['#10b981', '#e5e7eb'],
+                            borderColor: ['#ffffff', '#ffffff'],
+                            borderWidth: 4,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '80%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        }
+                    }
+                });
+
+                const tempCtx = document.getElementById('tempChart').getContext('2d');
+                tempChart = new Chart(tempCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['清晨 6 AM', '上午 10 AM', '午后 2 PM', '傍晚 6 PM', '夜晚 10 PM'],
+                        datasets: [{
+                            label: '预计温度 (°C)',
+                            data: [11, 18, 26, 22, 15],
+                            fill: true,
+                            borderColor: 'rgb(245, 158, 11)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: '温度 (°C)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                            }
+                        }
+                    }
+                });
+            }
+
+            function initNavObserver() {
+                const navItems = document.querySelectorAll('.nav-item');
+                const sections = document.querySelectorAll('main section');
+
+                const observer = new IntersectionObserver(entries => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            navItems.forEach(nav => {
+                                nav.classList.toggle('active', nav.getAttribute('href').slice(1) === entry.target.id);
+                            });
+                        }
+                    });
+                }, { rootMargin: "-50% 0px -50% 0px" });
+
+                sections.forEach(section => observer.observe(section));
+            }
+            
+            renderChecklists();
+            setupEventListeners();
+            createCharts();
+            updateProgress();
+            initNavObserver();
+        });
+    </script>
+</body>
+</html>
